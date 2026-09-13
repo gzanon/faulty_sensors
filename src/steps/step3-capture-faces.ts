@@ -25,32 +25,23 @@ export function renderCaptureFaces(container: HTMLElement, navigate: Navigate): 
   progress.className = 'muted';
   progress.textContent = `Sensor ${session.idSensor} — ${doneCount}/${FACES.length} fotos concluídas.`;
 
-  const photoBtn = document.createElement('button');
-  photoBtn.className = 'btn btn-primary btn-large';
-  photoBtn.type = 'button';
-  photoBtn.textContent = `Fotografar face "${face}"`;
-
   const cameraContainer = document.createElement('div');
   cameraContainer.className = 'camera-slot';
 
-  wrapper.append(title, progress, photoBtn, cameraContainer);
+  wrapper.append(title, progress, cameraContainer);
   container.appendChild(wrapper);
 
-  photoBtn.addEventListener('click', () => {
-    wrapper.classList.add('capturing');
-
-    void mountCameraCapture(cameraContainer, {
-      instructionText: `Alinhe a face "${face}" dentro do quadro, a uns 15-20cm de distância.`,
-      onCancel: () => navigate('review'),
-      onCapture: async (blob) => {
-        await updateSession({
-          photos: {
-            ...getSession().photos,
-            [face]: { face, blob, capturedAt: new Date().toISOString() },
-          },
-        });
-        navigate('faces');
-      },
-    });
+  mountCameraCapture(cameraContainer, {
+    instructionText: `Enquadre a face "${face}" do sensor preenchendo bem a foto.`,
+    onCancel: () => navigate('review'),
+    onCapture: async (blob) => {
+      await updateSession({
+        photos: {
+          ...getSession().photos,
+          [face]: { face, blob, capturedAt: new Date().toISOString() },
+        },
+      });
+      navigate('faces');
+    },
   });
 }
