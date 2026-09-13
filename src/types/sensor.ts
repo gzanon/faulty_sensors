@@ -1,4 +1,4 @@
-export const FACES = ['Topo', 'Base', 'Frente', 'Verso', 'Esquerda', 'Direita'] as const;
+export const FACES = ['Topo', 'Frente', 'Direita', 'Verso', 'Esquerda', 'Base'] as const;
 export type Face = (typeof FACES)[number];
 
 export type IdSource = 'qr' | 'ocr' | 'manual';
@@ -20,6 +20,7 @@ export interface SensorSession {
   idSource: IdSource;
   labelFace: Face;
   dataRegistro: string;
+  observacoes: string;
   photos: Partial<Record<Face, CapturedPhoto>>;
 }
 
@@ -29,6 +30,7 @@ export function createEmptySession(): SensorSession {
     idSource: 'manual',
     labelFace: 'Topo',
     dataRegistro: '',
+    observacoes: '',
     photos: {},
   };
 }

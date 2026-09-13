@@ -61,10 +61,10 @@ export function renderReview(container: HTMLElement, navigate: Navigate): void {
   continueBtn.className = 'btn btn-primary btn-large';
   continueBtn.type = 'button';
   continueBtn.disabled = missing.length > 0;
-  continueBtn.textContent = missing.length > 0 ? `Faltam ${missing.length} fotos` : 'Continuar para compartilhar';
+  continueBtn.textContent = missing.length > 0 ? `Faltam ${missing.length} fotos` : 'Continuar';
   continueBtn.addEventListener('click', () => {
     cleanupUrls();
-    navigate('share');
+    navigate('notes');
   });
 
   if (missing.length > 0) {

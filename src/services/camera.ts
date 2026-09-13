@@ -1,11 +1,54 @@
 import { captureFrameFromVideo, resizeBlob, type GuideBox } from './imageResize';
 
 const GUIDE_FRACTION = 0.65;
+const FOCUS_SETTLE_MS = 500;
 
 export interface CameraCaptureOptions {
   instructionText: string;
   onCapture: (blob: Blob) => void;
   onCancel: () => void;
+}
+
+type FocusCapabilities = MediaTrackCapabilities & {
+  focusMode?: string[];
+  pointsOfInterest?: unknown;
+};
+
+function wait(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * Tenta focar a câmera (foco único ou contínuo, com ponto de interesse
+ * opcional) usando a Image Capture API. Retorna false silenciosamente em
+ * qualquer aparelho/navegador sem suporte, sem quebrar a captura.
+ */
+async function triggerFocus(stream: MediaStream, pointOfInterest?: { x: number; y: number }): Promise<boolean> {
+  const [track] = stream.getVideoTracks();
+  if (!track || typeof track.getCapabilities !== 'function') return false;
+
+  let capabilities: FocusCapabilities;
+  try {
+    capabilities = track.getCapabilities() as FocusCapabilities;
+  } catch {
+    return false;
+  }
+
+  const focusModes = capabilities.focusMode ?? [];
+  const mode = focusModes.includes('continuous') ? 'continuous' : focusModes.includes('single-shot') ? 'single-shot' : null;
+  if (!mode) return false;
+
+  const advanced: Record<string, unknown> = { focusMode: mode };
+  if (pointOfInterest && capabilities.pointsOfInterest) {
+    advanced.pointsOfInterest = [pointOfInterest];
+  }
+
+  try {
+    await track.applyConstraints({ advanced: [advanced] } as MediaTrackConstraints);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 /**
@@ -21,8 +64,8 @@ export async function mountCameraCapture(container: HTMLElement, options: Camera
     stream = await navigator.mediaDevices.getUserMedia({
       video: {
         facingMode: { ideal: 'environment' },
-        // @ts-expect-error focusMode não está no tipo padrão do DOM, mas é suportado no Chrome Android
-        focusMode: { ideal: 'continuous' },
+        width: { ideal: 2560 },
+        height: { ideal: 1440 },
       },
       audio: false,
     });
@@ -31,7 +74,8 @@ export async function mountCameraCapture(container: HTMLElement, options: Camera
     return;
   }
 
-  await enableContinuousFocus(stream);
+  const activeStream = stream;
+  void triggerFocus(activeStream, { x: 0.5, y: 0.5 });
 
   const wrapper = document.createElement('div');
   wrapper.className = 'camera-wrapper';
@@ -41,7 +85,7 @@ export async function mountCameraCapture(container: HTMLElement, options: Camera
   video.autoplay = true;
   video.playsInline = true;
   video.muted = true;
-  video.srcObject = stream;
+  video.srcObject = activeStream;
 
   const guide = document.createElement('div');
   guide.className = 'camera-guide';
@@ -49,9 +93,17 @@ export async function mountCameraCapture(container: HTMLElement, options: Camera
     '<span class="corner corner-tl"></span><span class="corner corner-tr"></span>' +
     '<span class="corner corner-bl"></span><span class="corner corner-br"></span>';
 
+  const focusRing = document.createElement('div');
+  focusRing.className = 'camera-focus-ring';
+  focusRing.hidden = true;
+
   const instruction = document.createElement('p');
   instruction.className = 'camera-instruction';
   instruction.textContent = options.instructionText;
+
+  const tapHint = document.createElement('p');
+  tapHint.className = 'camera-tap-hint';
+  tapHint.textContent = 'Toque na tela para focar num ponto específico.';
 
   const controls = document.createElement('div');
   controls.className = 'camera-controls';
@@ -67,10 +119,19 @@ export async function mountCameraCapture(container: HTMLElement, options: Camera
   cancelBtn.textContent = 'Cancelar';
 
   controls.append(cancelBtn, captureBtn);
-  wrapper.append(video, guide, instruction, controls);
+  wrapper.append(video, guide, focusRing, instruction, tapHint, controls);
   container.appendChild(wrapper);
 
-  const stopStream = () => stream?.getTracks().forEach((track) => track.stop());
+  const stopStream = () => activeStream.getTracks().forEach((track) => track.stop());
+
+  video.addEventListener('click', (event) => {
+    const rect = video.getBoundingClientRect();
+    const x = (event.clientX - rect.left) / rect.width;
+    const y = (event.clientY - rect.top) / rect.height;
+    void triggerFocus(activeStream, { x, y }).then((focused) => {
+      if (focused) showFocusRing(focusRing, event.clientX - rect.left, event.clientY - rect.top);
+    });
+  });
 
   cancelBtn.addEventListener('click', () => {
     stopStream();
@@ -78,8 +139,14 @@ export async function mountCameraCapture(container: HTMLElement, options: Camera
   });
 
   captureBtn.addEventListener('click', async () => {
-    const guideBox = computeGuideBoxInVideoSpace(video, wrapper);
     captureBtn.disabled = true;
+    const originalLabel = captureBtn.textContent;
+    captureBtn.textContent = 'Focando...';
+    const focused = await triggerFocus(activeStream, { x: 0.5, y: 0.5 });
+    if (focused) await wait(FOCUS_SETTLE_MS);
+    captureBtn.textContent = originalLabel;
+
+    const guideBox = computeGuideBoxInVideoSpace(video, wrapper);
     try {
       const blob = await captureFrameFromVideo(video, guideBox);
       stopStream();
@@ -88,6 +155,19 @@ export async function mountCameraCapture(container: HTMLElement, options: Camera
       captureBtn.disabled = false;
     }
   });
+}
+
+function showFocusRing(ring: HTMLElement, x: number, y: number): void {
+  ring.style.left = `${x}px`;
+  ring.style.top = `${y}px`;
+  ring.hidden = false;
+  ring.classList.remove('camera-focus-ring-pulse');
+  // força reflow para reiniciar a animação em toques consecutivos no mesmo ponto
+  void ring.offsetWidth;
+  ring.classList.add('camera-focus-ring-pulse');
+  setTimeout(() => {
+    ring.hidden = true;
+  }, 600);
 }
 
 function computeGuideBoxInVideoSpace(video: HTMLVideoElement, container: HTMLElement): GuideBox {
@@ -107,22 +187,6 @@ function computeGuideBoxInVideoSpace(video: HTMLVideoElement, container: HTMLEle
     y: (guideYCss - offsetY) / scale,
     size: guideSizeCss / scale,
   };
-}
-
-async function enableContinuousFocus(stream: MediaStream): Promise<void> {
-  const [track] = stream.getVideoTracks();
-  if (!track || typeof track.getCapabilities !== 'function') return;
-
-  try {
-    const capabilities = track.getCapabilities() as MediaTrackCapabilities & { focusMode?: string[] };
-    if (!capabilities.focusMode?.includes('continuous')) return;
-    await track.applyConstraints({
-      // @ts-expect-error focusMode não está no tipo padrão do DOM, mas é suportado no Chrome Android
-      advanced: [{ focusMode: 'continuous' }],
-    });
-  } catch {
-    // Dispositivo não suporta controle de foco via API — segue com o foco padrão da câmera.
-  }
 }
 
 function mountFileInputFallback(container: HTMLElement, options: CameraCaptureOptions): void {

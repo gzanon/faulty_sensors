@@ -5,6 +5,7 @@ import { renderLabelCapture } from './steps/step1-label';
 import { renderConfirmId } from './steps/step2-confirm-id';
 import { renderCaptureFaces } from './steps/step3-capture-faces';
 import { renderReview } from './steps/step4-review';
+import { renderNotes } from './steps/step4b-notes';
 import { renderShare } from './steps/step5-share';
 import type { Navigate, Step } from './steps/types';
 
@@ -28,6 +29,9 @@ const navigate: Navigate = (step: Step) => {
       break;
     case 'review':
       renderReview(app, navigate);
+      break;
+    case 'notes':
+      renderNotes(app, navigate);
       break;
     case 'share':
       renderShare(app, navigate);

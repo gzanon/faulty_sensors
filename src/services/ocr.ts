@@ -1,4 +1,5 @@
 import { createWorker, type Worker } from 'tesseract.js';
+import { preprocessForOcr } from './imageResize';
 
 const CHAR_WHITELIST = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.-/';
 
@@ -38,7 +39,8 @@ export async function ocrBlob(blob: Blob, onProgress?: ProgressListener): Promis
   progressListener = onProgress ?? null;
   try {
     const worker = await getWorker();
-    const { data } = await worker.recognize(blob);
+    const preprocessed = await preprocessForOcr(blob);
+    const { data } = await worker.recognize(preprocessed);
     return data.text.trim();
   } finally {
     progressListener = null;

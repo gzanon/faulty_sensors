@@ -1,6 +1,6 @@
 import { FACES, type Face, type NamedPhoto, type SensorSession } from '../types/sensor';
 
-const ONEDRIVE_FOLDER = 'Sensores Defeituosos';
+const ONEDRIVE_FOLDER = 'APP Sensores';
 
 export function sanitizeSensorId(raw: string): string {
   return raw

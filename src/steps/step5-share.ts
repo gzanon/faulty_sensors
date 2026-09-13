@@ -31,6 +31,14 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
   }
   summary.append(summaryTitle, summaryDate, fileList);
 
+  if (session.observacoes) {
+    const summaryObs = document.createElement('p');
+    const obsLabel = document.createElement('strong');
+    obsLabel.textContent = 'Observações: ';
+    summaryObs.append(obsLabel, document.createTextNode(session.observacoes));
+    summary.appendChild(summaryObs);
+  }
+
   const step1 = document.createElement('div');
   step1.className = 'card';
   const step1Title = document.createElement('h3');
@@ -67,6 +75,15 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
   rowPreview.value = buildSharePointRow(session);
   step2.append(step2Title, step2Hint, copyBtn, copyStatus, rowPreview);
 
+  const finalActions = document.createElement('div');
+  finalActions.className = 'actions';
+
+  const homeBtn = document.createElement('button');
+  homeBtn.className = 'btn btn-secondary';
+  homeBtn.type = 'button';
+  homeBtn.textContent = 'Início';
+  homeBtn.addEventListener('click', () => navigate('intro'));
+
   const finishBtn = document.createElement('button');
   finishBtn.className = 'btn btn-secondary';
   finishBtn.type = 'button';
@@ -76,7 +93,8 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
     navigate('intro');
   });
 
-  wrapper.append(title, summary, step1, step2, finishBtn);
+  finalActions.append(homeBtn, finishBtn);
+  wrapper.append(title, summary, step1, step2, finalActions);
   container.appendChild(wrapper);
 
   shareBtn.addEventListener('click', async () => {
