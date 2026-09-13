@@ -4,6 +4,36 @@ import { getSession, updateSession } from '../state/appState';
 import type { IdSource } from '../types/sensor';
 import type { Navigate } from './types';
 
+const OCR_TIMEOUT_MS = 25_000;
+
+const OCR_STATUS_LABELS: Record<string, string> = {
+  'loading tesseract core': 'carregando mecanismo de OCR',
+  'initializing tesseract': 'inicializando OCR',
+  'loading language traineddata': 'carregando idioma',
+  'initializing api': 'preparando OCR',
+  'recognizing text': 'lendo texto',
+};
+
+function describeOcrStatus(status: string): string {
+  return OCR_STATUS_LABELS[status] ?? status;
+}
+
+function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
+  return new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error('Tempo esgotado ao processar OCR')), ms);
+    promise.then(
+      (value) => {
+        clearTimeout(timer);
+        resolve(value);
+      },
+      (err) => {
+        clearTimeout(timer);
+        reject(err instanceof Error ? err : new Error(String(err)));
+      },
+    );
+  });
+}
+
 export function renderConfirmId(container: HTMLElement, navigate: Navigate): void {
   const session = getSession();
   const photo = session.photos[session.labelFace];
@@ -31,12 +61,12 @@ export function renderConfirmId(container: HTMLElement, navigate: Navigate): voi
 
   const fieldLabel = document.createElement('label');
   fieldLabel.className = 'field-label';
-  fieldLabel.textContent = 'ID do sensor (edite se necessário)';
+  fieldLabel.textContent = 'ID do sensor (edite ou digite manualmente a qualquer momento)';
 
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'text-input';
-  input.disabled = true;
+  input.placeholder = 'Aguardando leitura automática...';
 
   const rawTextDetails = document.createElement('details');
   rawTextDetails.className = 'raw-ocr-details';
@@ -52,7 +82,7 @@ export function renderConfirmId(container: HTMLElement, navigate: Navigate): voi
   const retryBtn = document.createElement('button');
   retryBtn.className = 'btn btn-secondary';
   retryBtn.type = 'button';
-  retryBtn.textContent = 'Tentar novamente';
+  retryBtn.textContent = 'Tirar a foto de novo';
   retryBtn.addEventListener('click', () => {
     URL.revokeObjectURL(imgUrl);
     navigate('label');
@@ -71,6 +101,7 @@ export function renderConfirmId(container: HTMLElement, navigate: Navigate): voi
   let idSource: IdSource = 'manual';
 
   input.addEventListener('input', () => {
+    idSource = 'manual';
     confirmBtn.disabled = input.value.trim().length === 0;
   });
 
@@ -85,33 +116,45 @@ export function renderConfirmId(container: HTMLElement, navigate: Navigate): voi
   void identifySensor();
 
   async function identifySensor(): Promise<void> {
-    const qrText = await decodeQrFromBlob(photo!.blob);
-    if (qrText) {
-      idSource = 'qr';
-      badge.textContent = 'Lido via QR Code';
-      badge.className = 'badge badge-success';
-      input.value = sanitizeSensorId(qrText);
-      input.disabled = false;
+    try {
+      const qrText = await decodeQrFromBlob(photo!.blob);
+      if (qrText) {
+        idSource = 'qr';
+        badge.textContent = 'Lido via QR Code';
+        badge.className = 'badge badge-success';
+        input.value = sanitizeSensorId(qrText);
+        confirmBtn.disabled = input.value.trim().length === 0;
+        return;
+      }
+
+      badge.textContent = 'QR não encontrado, tentando OCR (pode levar alguns segundos)...';
+      const { ocrBlob, suggestSensorIdFromText } = await import('../services/ocr');
+
+      const rawText = await withTimeout(
+        ocrBlob(photo!.blob, (p) => {
+          const pct = Math.round(p.progress * 100);
+          badge.textContent = `OCR: ${describeOcrStatus(p.status)} (${pct}%)`;
+        }),
+        OCR_TIMEOUT_MS,
+      );
+
+      const suggestion = suggestSensorIdFromText(rawText);
+      idSource = 'ocr';
+      badge.textContent = 'Sugestão via OCR — menos confiável, confira com atenção';
+      badge.className = 'badge badge-warning';
+      input.value = sanitizeSensorId(suggestion ?? '');
+      input.placeholder = suggestion ? '' : 'Não foi possível sugerir um ID, digite manualmente';
       confirmBtn.disabled = input.value.trim().length === 0;
-      return;
-    }
 
-    badge.textContent = 'QR não encontrado, tentando OCR...';
-    const { ocrBlob, suggestSensorIdFromText } = await import('../services/ocr');
-    const rawText = await ocrBlob(photo!.blob);
-    const suggestion = suggestSensorIdFromText(rawText);
-
-    idSource = 'ocr';
-    badge.textContent = 'Sugestão via OCR — menos confiável, confira com atenção';
-    badge.className = 'badge badge-warning';
-    input.value = sanitizeSensorId(suggestion ?? '');
-    input.disabled = false;
-    input.placeholder = suggestion ? '' : 'Não foi possível sugerir um ID, digite manualmente';
-    confirmBtn.disabled = input.value.trim().length === 0;
-
-    if (rawText) {
-      rawTextPre.textContent = rawText;
-      rawTextDetails.hidden = false;
+      if (rawText) {
+        rawTextPre.textContent = rawText;
+        rawTextDetails.hidden = false;
+      }
+    } catch {
+      badge.textContent = 'Não foi possível identificar automaticamente. Digite o ID manualmente.';
+      badge.className = 'badge badge-warning';
+      input.placeholder = 'Digite o ID do sensor';
+      input.focus();
     }
   }
 }

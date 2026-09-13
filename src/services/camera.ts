@@ -19,13 +19,19 @@ export async function mountCameraCapture(container: HTMLElement, options: Camera
   let stream: MediaStream | null = null;
   try {
     stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { ideal: 'environment' } },
+      video: {
+        facingMode: { ideal: 'environment' },
+        // @ts-expect-error focusMode não está no tipo padrão do DOM, mas é suportado no Chrome Android
+        focusMode: { ideal: 'continuous' },
+      },
       audio: false,
     });
   } catch {
     mountFileInputFallback(container, options);
     return;
   }
+
+  await enableContinuousFocus(stream);
 
   const wrapper = document.createElement('div');
   wrapper.className = 'camera-wrapper';
@@ -101,6 +107,22 @@ function computeGuideBoxInVideoSpace(video: HTMLVideoElement, container: HTMLEle
     y: (guideYCss - offsetY) / scale,
     size: guideSizeCss / scale,
   };
+}
+
+async function enableContinuousFocus(stream: MediaStream): Promise<void> {
+  const [track] = stream.getVideoTracks();
+  if (!track || typeof track.getCapabilities !== 'function') return;
+
+  try {
+    const capabilities = track.getCapabilities() as MediaTrackCapabilities & { focusMode?: string[] };
+    if (!capabilities.focusMode?.includes('continuous')) return;
+    await track.applyConstraints({
+      // @ts-expect-error focusMode não está no tipo padrão do DOM, mas é suportado no Chrome Android
+      advanced: [{ focusMode: 'continuous' }],
+    });
+  } catch {
+    // Dispositivo não suporta controle de foco via API — segue com o foco padrão da câmera.
+  }
 }
 
 function mountFileInputFallback(container: HTMLElement, options: CameraCaptureOptions): void {

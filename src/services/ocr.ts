@@ -2,7 +2,15 @@ import { createWorker, type Worker } from 'tesseract.js';
 
 const CHAR_WHITELIST = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789.-/';
 
+export interface OcrProgress {
+  status: string;
+  progress: number;
+}
+
+type ProgressListener = (p: OcrProgress) => void;
+
 let workerPromise: Promise<Worker> | null = null;
+let progressListener: ProgressListener | null = null;
 
 function getWorker(): Promise<Worker> {
   if (!workerPromise) {
@@ -11,18 +19,30 @@ function getWorker(): Promise<Worker> {
       corePath: '/tesseract/tesseract-core-simd-lstm.js',
       langPath: '/tesseract',
       cacheMethod: 'none',
-    }).then(async (worker) => {
-      await worker.setParameters({ tessedit_char_whitelist: CHAR_WHITELIST });
-      return worker;
-    });
+      logger: (m: OcrProgress) => progressListener?.(m),
+    })
+      .then(async (worker) => {
+        await worker.setParameters({ tessedit_char_whitelist: CHAR_WHITELIST });
+        return worker;
+      })
+      .catch((err) => {
+        // Permite que uma tentativa futura recrie o worker em vez de ficar preso num erro permanente.
+        workerPromise = null;
+        throw err;
+      });
   }
   return workerPromise;
 }
 
-export async function ocrBlob(blob: Blob): Promise<string> {
-  const worker = await getWorker();
-  const { data } = await worker.recognize(blob);
-  return data.text.trim();
+export async function ocrBlob(blob: Blob, onProgress?: ProgressListener): Promise<string> {
+  progressListener = onProgress ?? null;
+  try {
+    const worker = await getWorker();
+    const { data } = await worker.recognize(blob);
+    return data.text.trim();
+  } finally {
+    progressListener = null;
+  }
 }
 
 /** Extrai o trecho alfanumérico mais provável de ser um ID/PN de sensor. */
