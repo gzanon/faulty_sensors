@@ -10,8 +10,12 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['icons/icon.svg'],
       workbox: {
-        globPatterns: ['**/*.{js,css,html,svg,png,ico,wasm,gz}'],
-        maximumFileSizeToCacheInBytes: 6 * 1024 * 1024,
+        globPatterns: ['**/*.{js,css,html,svg,png,ico}'],
+        // Os arquivos do Tesseract ficam fora do precache do service worker:
+        // são grandes, só usados no fallback de OCR, e descartamos qualquer
+        // chance de o SW interferir nessas requisições (suspeita de travamento).
+        globIgnores: ['tesseract/**'],
+        maximumFileSizeToCacheInBytes: 2 * 1024 * 1024,
       },
       manifest: {
         name: 'Sensores Defeituosos',

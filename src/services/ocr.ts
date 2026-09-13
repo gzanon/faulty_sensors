@@ -27,6 +27,10 @@ function getWorker(): Promise<Worker> {
         corePath: `${base}tesseract/tesseract-core-simd-lstm.js`,
         langPath: `${base}tesseract`,
         cacheMethod: 'none',
+        // Cria o worker a partir da URL de rede diretamente, em vez de baixar o
+        // script e envolver num blob: URL (comportamento padrão) — evita um
+        // possível travamento de fetch dentro do contexto de um worker blob.
+        workerBlobURL: false,
         logger: (m: OcrProgress) => progressListener?.(m),
         errorHandler: (err: unknown) => {
           reject(new Error(`Falha interna do OCR: ${typeof err === 'string' ? err : JSON.stringify(err)}`));
