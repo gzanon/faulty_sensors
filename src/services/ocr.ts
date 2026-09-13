@@ -16,22 +16,32 @@ let progressListener: ProgressListener | null = null;
 function getWorker(): Promise<Worker> {
   if (!workerPromise) {
     const base = import.meta.env.BASE_URL;
-    workerPromise = createWorker('eng', 1, {
-      workerPath: `${base}tesseract/worker.min.js`,
-      corePath: `${base}tesseract/tesseract-core-simd-lstm.js`,
-      langPath: `${base}tesseract`,
-      cacheMethod: 'none',
-      logger: (m: OcrProgress) => progressListener?.(m),
-    })
-      .then(async (worker) => {
-        await worker.setParameters({ tessedit_char_whitelist: CHAR_WHITELIST });
-        return worker;
+
+    // O tesseract.js tem um bug conhecido: se o carregamento do idioma ou a
+    // inicialização falharem, a promessa interna do createWorker nunca
+    // resolve nem rejeita (o erro é engolido internamente). Por isso usamos
+    // `errorHandler` para capturar o erro manualmente e rejeitar nós mesmos.
+    workerPromise = new Promise<Worker>((resolve, reject) => {
+      createWorker('eng', 1, {
+        workerPath: `${base}tesseract/worker.min.js`,
+        corePath: `${base}tesseract/tesseract-core-simd-lstm.js`,
+        langPath: `${base}tesseract`,
+        cacheMethod: 'none',
+        logger: (m: OcrProgress) => progressListener?.(m),
+        errorHandler: (err: unknown) => {
+          reject(new Error(`Falha interna do OCR: ${typeof err === 'string' ? err : JSON.stringify(err)}`));
+        },
       })
-      .catch((err) => {
-        // Permite que uma tentativa futura recrie o worker em vez de ficar preso num erro permanente.
-        workerPromise = null;
-        throw err;
-      });
+        .then(async (worker) => {
+          await worker.setParameters({ tessedit_char_whitelist: CHAR_WHITELIST });
+          resolve(worker);
+        })
+        .catch(reject);
+    }).catch((err) => {
+      // Permite que uma tentativa futura recrie o worker em vez de ficar preso num erro permanente.
+      workerPromise = null;
+      throw err;
+    });
   }
   return workerPromise;
 }

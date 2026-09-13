@@ -1,7 +1,10 @@
 import { decodeQrFromBlob } from '../services/qrDecode';
 import { sanitizeSensorId } from '../services/fileNaming';
 import { resizeBlob } from '../services/imageResize';
+import { withTimeout } from '../utils/withTimeout';
 import type { Navigate } from './types';
+
+const OCR_TIMEOUT_MS = 25_000;
 
 export function renderOcrTest(container: HTMLElement, navigate: Navigate): void {
   const wrapper = document.createElement('div');
@@ -81,17 +84,28 @@ export function renderOcrTest(container: HTMLElement, navigate: Navigate): void 
 
     const { ocrBlob, suggestSensorIdFromText } = await import('../services/ocr');
     const ocrStart = performance.now();
-    const rawText = await ocrBlob(blob, (p) => {
-      const pct = Math.round(p.progress * 100);
-      ocrTiming.textContent = `OCR rodando... ${pct}%`;
-    });
-    const ocrMs = Math.round(performance.now() - ocrStart);
+    try {
+      const rawText = await withTimeout(
+        ocrBlob(blob, (p) => {
+          const pct = Math.round(p.progress * 100);
+          ocrTiming.textContent = `OCR rodando... ${pct}% (${Math.round(performance.now() - ocrStart)}ms)`;
+        }),
+        OCR_TIMEOUT_MS,
+        'Tempo esgotado (25s) esperando o OCR responder',
+      );
+      const ocrMs = Math.round(performance.now() - ocrStart);
 
-    ocrTiming.textContent = `OCR concluído em ${ocrMs}ms.`;
-    const suggestion = suggestSensorIdFromText(rawText);
-    ocrSuggestion.textContent = suggestion
-      ? `ID sugerido pelo OCR: ${sanitizeSensorId(suggestion)}`
-      : 'OCR não conseguiu sugerir um ID a partir do texto lido.';
-    ocrRawPre.textContent = rawText || '(nenhum texto reconhecido)';
+      ocrTiming.textContent = `OCR concluído em ${ocrMs}ms.`;
+      const suggestion = suggestSensorIdFromText(rawText);
+      ocrSuggestion.textContent = suggestion
+        ? `ID sugerido pelo OCR: ${sanitizeSensorId(suggestion)}`
+        : 'OCR não conseguiu sugerir um ID a partir do texto lido.';
+      ocrRawPre.textContent = rawText || '(nenhum texto reconhecido)';
+    } catch (err) {
+      const ocrMs = Math.round(performance.now() - ocrStart);
+      ocrTiming.textContent = `OCR falhou após ${ocrMs}ms.`;
+      ocrTiming.className = 'status-text status-error';
+      ocrRawPre.textContent = `Erro: ${err instanceof Error ? err.message : String(err)}`;
+    }
   });
 }

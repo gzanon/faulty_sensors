@@ -1,27 +1,12 @@
 import { decodeQrFromBlob } from '../services/qrDecode';
 import { sanitizeSensorId } from '../services/fileNaming';
 import { getSession, updateSession } from '../state/appState';
+import { withTimeout } from '../utils/withTimeout';
 import type { IdSource } from '../types/sensor';
 import type { Navigate } from './types';
 
 const OCR_TIMEOUT_MS = 25_000;
 const IDENTIFYING_MESSAGE = 'Identificando sensor...';
-
-function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
-  return new Promise((resolve, reject) => {
-    const timer = setTimeout(() => reject(new Error('Tempo esgotado ao processar OCR')), ms);
-    promise.then(
-      (value) => {
-        clearTimeout(timer);
-        resolve(value);
-      },
-      (err) => {
-        clearTimeout(timer);
-        reject(err instanceof Error ? err : new Error(String(err)));
-      },
-    );
-  });
-}
 
 export function renderConfirmId(container: HTMLElement, navigate: Navigate): void {
   const session = getSession();
@@ -125,6 +110,7 @@ export function renderConfirmId(container: HTMLElement, navigate: Navigate): voi
           badge.textContent = `${IDENTIFYING_MESSAGE} ${pct}%`;
         }),
         OCR_TIMEOUT_MS,
+        'Tempo esgotado ao processar OCR',
       );
 
       const suggestion = suggestSensorIdFromText(rawText);
@@ -137,10 +123,12 @@ export function renderConfirmId(container: HTMLElement, navigate: Navigate): voi
 
       rawTextPre.textContent = rawText || '(nenhum texto reconhecido)';
       rawTextDetails.hidden = false;
-    } catch {
+    } catch (err) {
       badge.textContent = 'Não foi possível identificar automaticamente. Digite o ID manualmente.';
       badge.className = 'badge badge-warning';
       input.placeholder = 'Digite o ID do sensor';
+      rawTextPre.textContent = `Erro: ${err instanceof Error ? err.message : String(err)}`;
+      rawTextDetails.hidden = false;
       input.focus();
     }
   }
