@@ -1,8 +1,10 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
+const BASE = '/faulty_sensors/';
+
 export default defineConfig({
-  base: '/',
+  base: BASE,
   plugins: [
     VitePWA({
       registerType: 'autoUpdate',
@@ -15,14 +17,15 @@ export default defineConfig({
         name: 'Sensores Defeituosos',
         short_name: 'Sensores',
         description: 'Captura e catalogação de fotos de sensores defeituosos em campo.',
-        start_url: '/',
+        start_url: BASE,
+        scope: BASE,
         display: 'standalone',
         background_color: '#0f172a',
         theme_color: '#0f172a',
         icons: [
-          { src: '/icons/icon-192.png', sizes: '192x192', type: 'image/png' },
-          { src: '/icons/icon-512.png', sizes: '512x512', type: 'image/png' },
-          { src: '/icons/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+          { src: `${BASE}icons/icon-192.png`, sizes: '192x192', type: 'image/png' },
+          { src: `${BASE}icons/icon-512.png`, sizes: '512x512', type: 'image/png' },
+          { src: `${BASE}icons/icon-maskable-512.png`, sizes: '512x512', type: 'image/png', purpose: 'maskable' },
         ],
       },
     }),

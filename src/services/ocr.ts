@@ -15,10 +15,11 @@ let progressListener: ProgressListener | null = null;
 
 function getWorker(): Promise<Worker> {
   if (!workerPromise) {
+    const base = import.meta.env.BASE_URL;
     workerPromise = createWorker('eng', 1, {
-      workerPath: '/tesseract/worker.min.js',
-      corePath: '/tesseract/tesseract-core-simd-lstm.js',
-      langPath: '/tesseract',
+      workerPath: `${base}tesseract/worker.min.js`,
+      corePath: `${base}tesseract/tesseract-core-simd-lstm.js`,
+      langPath: `${base}tesseract`,
       cacheMethod: 'none',
       logger: (m: OcrProgress) => progressListener?.(m),
     })
