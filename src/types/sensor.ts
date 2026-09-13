@@ -22,6 +22,8 @@ export interface SensorSession {
   dataRegistro: string;
   observacoes: string;
   photos: Partial<Record<Face, CapturedPhoto>>;
+  /** false quando o sensor está extraviado e o cadastro é feito só com o ID digitado, sem fotos. */
+  withPhotos: boolean;
 }
 
 export function createEmptySession(): SensorSession {
@@ -32,5 +34,6 @@ export function createEmptySession(): SensorSession {
     dataRegistro: '',
     observacoes: '',
     photos: {},
+    withPhotos: true,
   };
 }

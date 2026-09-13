@@ -31,7 +31,7 @@ export async function resetSession(): Promise<void> {
 
 export async function restoreDraftIfAny(): Promise<boolean> {
   const draft = await loadDraft();
-  if (draft && Object.keys(draft.photos).length > 0) {
+  if (draft && (Object.keys(draft.photos).length > 0 || draft.idSensor !== '')) {
     session = draft;
     notify();
     return true;

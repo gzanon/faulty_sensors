@@ -1,6 +1,7 @@
 import './style.css';
 import { restoreDraftIfAny } from './state/appState';
 import { renderIntro } from './steps/step0-intro';
+import { renderManualId } from './steps/step1b-manual-id';
 import { renderLabelCapture } from './steps/step1-label';
 import { renderConfirmId } from './steps/step2-confirm-id';
 import { renderCaptureFaces } from './steps/step3-capture-faces';
@@ -17,6 +18,9 @@ const navigate: Navigate = (step: Step) => {
   switch (step) {
     case 'intro':
       renderIntro(app, navigate);
+      break;
+    case 'manualId':
+      renderManualId(app, navigate);
       break;
     case 'label':
       renderLabelCapture(app, navigate);

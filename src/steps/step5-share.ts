@@ -21,15 +21,24 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
   summaryTitle.innerHTML = `<strong>Sensor:</strong> ${session.idSensor}`;
   const summaryDate = document.createElement('p');
   summaryDate.innerHTML = `<strong>Data:</strong> ${new Date(session.dataRegistro).toLocaleString('pt-BR')}`;
-  const fileList = document.createElement('ul');
-  fileList.className = 'file-list';
-  for (const face of FACES) {
-    const item = document.createElement('li');
-    const named = namedPhotos.find((p) => p.face === face);
-    item.textContent = named ? named.fileName : `${face}: faltando`;
-    fileList.appendChild(item);
+  summary.append(summaryTitle, summaryDate);
+
+  if (session.withPhotos) {
+    const fileList = document.createElement('ul');
+    fileList.className = 'file-list';
+    for (const face of FACES) {
+      const item = document.createElement('li');
+      const named = namedPhotos.find((p) => p.face === face);
+      item.textContent = named ? named.fileName : `${face}: faltando`;
+      fileList.appendChild(item);
+    }
+    summary.appendChild(fileList);
+  } else {
+    const noPhotosNote = document.createElement('p');
+    noPhotosNote.className = 'muted';
+    noPhotosNote.textContent = 'Cadastro sem fotos (sensor extraviado).';
+    summary.appendChild(noPhotosNote);
   }
-  summary.append(summaryTitle, summaryDate, fileList);
 
   if (session.observacoes) {
     const summaryObs = document.createElement('p');
@@ -39,10 +48,13 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
     summary.appendChild(summaryObs);
   }
 
+  const stepNumberPhotos = session.withPhotos ? '1' : null;
+  const stepNumberRegister = session.withPhotos ? '2' : '1';
+
   const step1 = document.createElement('div');
   step1.className = 'card';
   const step1Title = document.createElement('h3');
-  step1Title.textContent = '1. Enviar fotos ao OneDrive';
+  step1Title.textContent = `${stepNumberPhotos}. Enviar fotos ao OneDrive`;
   const step1Hint = document.createElement('p');
   step1Hint.className = 'muted';
   step1Hint.textContent = `No menu que abrir, escolha o app OneDrive e selecione a pasta "${oneDriveFolderName()}".`;
@@ -57,7 +69,7 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
   const step2 = document.createElement('div');
   step2.className = 'card';
   const step2Title = document.createElement('h3');
-  step2Title.textContent = '2. Registrar na lista do SharePoint';
+  step2Title.textContent = `${stepNumberRegister}. Registrar na lista do SharePoint`;
   const step2Hint = document.createElement('p');
   step2Hint.className = 'muted';
   step2Hint.textContent =
@@ -94,7 +106,9 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
   });
 
   finalActions.append(homeBtn, finishBtn);
-  wrapper.append(title, summary, step1, step2, finalActions);
+  wrapper.append(title, summary);
+  if (session.withPhotos) wrapper.appendChild(step1);
+  wrapper.append(step2, finalActions);
   container.appendChild(wrapper);
 
   shareBtn.addEventListener('click', async () => {

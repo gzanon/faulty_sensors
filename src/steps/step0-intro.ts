@@ -5,7 +5,7 @@ import type { Navigate } from './types';
 export function renderIntro(container: HTMLElement, navigate: Navigate): void {
   const session = getSession();
   const capturedCount = FACES.filter((f) => session.photos[f]).length;
-  const hasDraft = capturedCount > 0;
+  const hasDraft = capturedCount > 0 || session.idSensor !== '';
 
   const wrapper = document.createElement('div');
   wrapper.className = 'screen screen-intro';
@@ -16,8 +16,8 @@ export function renderIntro(container: HTMLElement, navigate: Navigate): void {
   const description = document.createElement('p');
   description.className = 'muted';
   description.textContent =
-    'Fotografe as 6 faces do sensor (45x45x45mm). A etiqueta com QR code identifica o sensor ' +
-    'automaticamente. Depois é só compartilhar as fotos para o OneDrive e registrar na lista do SharePoint.';
+    'Fotografe as 6 faces do sensor. A etiqueta com QR code identifica o sensor automaticamente. ' +
+    'Depois é só compartilhar as fotos para o OneDrive e registrar na lista do SharePoint.';
 
   wrapper.append(title, description);
 
@@ -27,7 +27,7 @@ export function renderIntro(container: HTMLElement, navigate: Navigate): void {
 
     const draftText = document.createElement('p');
     draftText.textContent = session.idSensor
-      ? `Sensor em andamento: ${session.idSensor} (${capturedCount}/6 fotos)`
+      ? `Sensor em andamento: ${session.idSensor}${session.withPhotos ? ` (${capturedCount}/6 fotos)` : ' (sem fotos)'}`
       : `Captura em andamento (${capturedCount}/6 fotos, ID ainda não confirmado)`;
 
     const resumeBtn = document.createElement('button');
@@ -35,7 +35,13 @@ export function renderIntro(container: HTMLElement, navigate: Navigate): void {
     resumeBtn.type = 'button';
     resumeBtn.textContent = 'Continuar';
     resumeBtn.addEventListener('click', () => {
-      navigate(session.idSensor ? 'faces' : 'label');
+      if (!session.idSensor) {
+        navigate('label');
+      } else if (!session.withPhotos) {
+        navigate('notes');
+      } else {
+        navigate('faces');
+      }
     });
 
     const discardBtn = document.createElement('button');
@@ -44,18 +50,29 @@ export function renderIntro(container: HTMLElement, navigate: Navigate): void {
     discardBtn.textContent = 'Descartar e começar novo';
     discardBtn.addEventListener('click', async () => {
       await resetSession();
-      navigate('label');
+      navigate('intro');
     });
 
     draftBox.append(draftText, resumeBtn, discardBtn);
     wrapper.appendChild(draftBox);
   } else {
-    const startBtn = document.createElement('button');
-    startBtn.className = 'btn btn-primary btn-large';
-    startBtn.type = 'button';
-    startBtn.textContent = 'Começar';
-    startBtn.addEventListener('click', () => navigate('label'));
-    wrapper.appendChild(startBtn);
+    const actions = document.createElement('div');
+    actions.className = 'actions';
+
+    const startWithPhotosBtn = document.createElement('button');
+    startWithPhotosBtn.className = 'btn btn-primary btn-large';
+    startWithPhotosBtn.type = 'button';
+    startWithPhotosBtn.textContent = 'Novo sensor (com fotos)';
+    startWithPhotosBtn.addEventListener('click', () => navigate('label'));
+
+    const startWithoutPhotosBtn = document.createElement('button');
+    startWithoutPhotosBtn.className = 'btn btn-secondary btn-large';
+    startWithoutPhotosBtn.type = 'button';
+    startWithoutPhotosBtn.textContent = 'Cadastrar apenas o ID (sem fotos)';
+    startWithoutPhotosBtn.addEventListener('click', () => navigate('manualId'));
+
+    actions.append(startWithPhotosBtn, startWithoutPhotosBtn);
+    wrapper.appendChild(actions);
   }
 
   container.appendChild(wrapper);
