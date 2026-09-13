@@ -75,12 +75,5 @@ export function renderIntro(container: HTMLElement, navigate: Navigate): void {
     wrapper.appendChild(actions);
   }
 
-  const settingsBtn = document.createElement('button');
-  settingsBtn.className = 'btn btn-small btn-secondary';
-  settingsBtn.type = 'button';
-  settingsBtn.textContent = 'Configurar link do SharePoint';
-  settingsBtn.addEventListener('click', () => navigate('settingsSharePoint'));
-  wrapper.appendChild(settingsBtn);
-
   container.appendChild(wrapper);
 }
