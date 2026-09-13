@@ -75,5 +75,12 @@ export function renderIntro(container: HTMLElement, navigate: Navigate): void {
     wrapper.appendChild(actions);
   }
 
+  const ocrTestLink = document.createElement('button');
+  ocrTestLink.className = 'btn btn-small btn-secondary';
+  ocrTestLink.type = 'button';
+  ocrTestLink.textContent = 'Testar leitura de QR / OCR';
+  ocrTestLink.addEventListener('click', () => navigate('ocrTest'));
+  wrapper.appendChild(ocrTestLink);
+
   container.appendChild(wrapper);
 }

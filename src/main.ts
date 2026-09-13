@@ -8,6 +8,7 @@ import { renderCaptureFaces } from './steps/step3-capture-faces';
 import { renderReview } from './steps/step4-review';
 import { renderNotes } from './steps/step4b-notes';
 import { renderShare } from './steps/step5-share';
+import { renderOcrTest } from './steps/debug-ocr-test';
 import type { Navigate, Step } from './steps/types';
 
 const app = document.querySelector<HTMLDivElement>('#app');
@@ -39,6 +40,9 @@ const navigate: Navigate = (step: Step) => {
       break;
     case 'share':
       renderShare(app, navigate);
+      break;
+    case 'ocrTest':
+      renderOcrTest(app, navigate);
       break;
   }
 };

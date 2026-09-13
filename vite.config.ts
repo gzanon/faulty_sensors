@@ -1,7 +1,7 @@
 import { defineConfig } from 'vite';
 import { VitePWA } from 'vite-plugin-pwa';
 
-const BASE = '/gzanon.github.io.faulty_sensors/';
+const BASE = '/faulty_sensors/';
 
 export default defineConfig({
   base: BASE,
