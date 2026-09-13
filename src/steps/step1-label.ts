@@ -33,7 +33,9 @@ export function renderLabelCapture(container: HTMLElement, navigate: Navigate): 
     wrapper.classList.add('capturing');
 
     void mountCameraCapture(cameraContainer, {
-      instructionText: 'Alinhe a face "Topo" (45x45mm) com a etiqueta dentro do quadro.',
+      instructionText:
+        'Alinhe a face "Topo" (com a etiqueta) dentro do quadro. Mantenha uns 15-20cm de distância — ' +
+        'muito perto, a câmera não consegue focar.',
       onCancel: () => {
         cameraContainer.innerHTML = '';
         wrapper.classList.remove('capturing');

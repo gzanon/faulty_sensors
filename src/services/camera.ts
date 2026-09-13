@@ -7,7 +7,7 @@ import {
   type GuideFraction,
 } from './imageResize';
 
-const GUIDE_FRACTION = 0.65;
+const GUIDE_FRACTION = 0.4;
 const FOCUS_SETTLE_MS = 500;
 
 export interface CameraCaptureOptions {

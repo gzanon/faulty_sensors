@@ -40,7 +40,7 @@ export function renderCaptureFaces(container: HTMLElement, navigate: Navigate): 
     wrapper.classList.add('capturing');
 
     void mountCameraCapture(cameraContainer, {
-      instructionText: `Alinhe a face "${face}" (45x45mm) do sensor dentro do quadro.`,
+      instructionText: `Alinhe a face "${face}" dentro do quadro, a uns 15-20cm de distância.`,
       onCancel: () => navigate('review'),
       onCapture: async (blob) => {
         await updateSession({
