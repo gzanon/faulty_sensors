@@ -48,13 +48,10 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
     summary.appendChild(summaryObs);
   }
 
-  const stepNumberPhotos = session.withPhotos ? '1' : null;
-  const stepNumberRegister = session.withPhotos ? '2' : '1';
-
   const step1 = document.createElement('div');
   step1.className = 'card';
   const step1Title = document.createElement('h3');
-  step1Title.textContent = `${stepNumberPhotos}. Enviar fotos ao OneDrive`;
+  step1Title.textContent = 'Enviar fotos ao OneDrive';
   const step1Hint = document.createElement('p');
   step1Hint.className = 'muted';
   step1Hint.textContent = `No menu que abrir, escolha o app OneDrive e selecione a pasta "${oneDriveFolderName()}".`;
@@ -69,7 +66,7 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
   const step2 = document.createElement('div');
   step2.className = 'card';
   const step2Title = document.createElement('h3');
-  step2Title.textContent = `${stepNumberRegister}. Registrar na lista do SharePoint`;
+  step2Title.textContent = 'Registrar na lista do SharePoint';
   const step2Hint = document.createElement('p');
   step2Hint.className = 'muted';
   step2Hint.textContent =
