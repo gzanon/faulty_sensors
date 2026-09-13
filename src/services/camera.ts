@@ -1,4 +1,11 @@
-import { captureFrameFromVideo, resizeBlob, type GuideBox } from './imageResize';
+import {
+  captureFrameFromVideo,
+  cropCapturedPhoto,
+  guideBoxFromFraction,
+  resizeBlob,
+  type GuideBox,
+  type GuideFraction,
+} from './imageResize';
 
 const GUIDE_FRACTION = 0.65;
 const FOCUS_SETTLE_MS = 500;
@@ -14,8 +21,27 @@ type FocusCapabilities = MediaTrackCapabilities & {
   pointsOfInterest?: unknown;
 };
 
+interface ImageCaptureLike {
+  takePhoto: () => Promise<Blob>;
+}
+
+type ImageCaptureCtor = new (track: MediaStreamTrack) => ImageCaptureLike;
+
 function wait(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+function waitForVideoReady(video: HTMLVideoElement): Promise<void> {
+  if (video.readyState >= 2 && video.videoWidth > 0) return Promise.resolve();
+  return new Promise((resolve) => {
+    const onReady = () => {
+      if (video.videoWidth > 0) {
+        video.removeEventListener('loadeddata', onReady);
+        resolve();
+      }
+    };
+    video.addEventListener('loadeddata', onReady);
+  });
 }
 
 /**
@@ -52,6 +78,29 @@ async function triggerFocus(stream: MediaStream, pointOfInterest?: { x: number; 
 }
 
 /**
+ * Tira a foto usando o pipeline nativo de captura da câmera (ImageCapture),
+ * que costuma focar/expor melhor que um frame do preview de vídeo. Cai para
+ * a captura de frame do <video> se a API não existir ou falhar.
+ */
+async function capturePhoto(stream: MediaStream, video: HTMLVideoElement, guideFrac: GuideFraction): Promise<Blob> {
+  const [track] = stream.getVideoTracks();
+  const ImageCaptureImpl = (window as unknown as { ImageCapture?: ImageCaptureCtor }).ImageCapture;
+
+  if (track && ImageCaptureImpl) {
+    try {
+      const imageCapture = new ImageCaptureImpl(track);
+      const photoBlob = await imageCapture.takePhoto();
+      return await cropCapturedPhoto(photoBlob, guideFrac);
+    } catch {
+      // segue para o fallback de captura via frame do vídeo
+    }
+  }
+
+  const guideBoxPixels = guideBoxFromFraction(guideFrac, video.videoWidth, video.videoHeight);
+  return captureFrameFromVideo(video, guideBoxPixels);
+}
+
+/**
  * Monta uma UI de câmera ao vivo em tela cheia com um quadrado-guia
  * centralizado (calibrado para a face de 45x45mm do sensor). Se
  * getUserMedia falhar, cai para um <input capture> nativo sem overlay.
@@ -75,7 +124,6 @@ export async function mountCameraCapture(container: HTMLElement, options: Camera
   }
 
   const activeStream = stream;
-  void triggerFocus(activeStream, { x: 0.5, y: 0.5 });
 
   const wrapper = document.createElement('div');
   wrapper.className = 'camera-wrapper';
@@ -111,7 +159,8 @@ export async function mountCameraCapture(container: HTMLElement, options: Camera
   const captureBtn = document.createElement('button');
   captureBtn.className = 'btn btn-primary btn-capture';
   captureBtn.type = 'button';
-  captureBtn.textContent = 'Tirar foto';
+  captureBtn.textContent = 'Abrindo câmera...';
+  captureBtn.disabled = true;
 
   const cancelBtn = document.createElement('button');
   cancelBtn.className = 'btn btn-secondary';
@@ -123,6 +172,12 @@ export async function mountCameraCapture(container: HTMLElement, options: Camera
   container.appendChild(wrapper);
 
   const stopStream = () => activeStream.getTracks().forEach((track) => track.stop());
+
+  void waitForVideoReady(video).then(() => {
+    captureBtn.disabled = false;
+    captureBtn.textContent = 'Tirar foto';
+    void triggerFocus(activeStream, { x: 0.5, y: 0.5 });
+  });
 
   video.addEventListener('click', (event) => {
     const rect = video.getBoundingClientRect();
@@ -146,9 +201,9 @@ export async function mountCameraCapture(container: HTMLElement, options: Camera
     if (focused) await wait(FOCUS_SETTLE_MS);
     captureBtn.textContent = originalLabel;
 
-    const guideBox = computeGuideBoxInVideoSpace(video, wrapper);
+    const guideFrac = computeGuideFraction(video, wrapper);
     try {
-      const blob = await captureFrameFromVideo(video, guideBox);
+      const blob = await capturePhoto(activeStream, video, guideFrac);
       stopStream();
       options.onCapture(blob);
     } catch {
@@ -186,6 +241,15 @@ function computeGuideBoxInVideoSpace(video: HTMLVideoElement, container: HTMLEle
     x: (guideXCss - offsetX) / scale,
     y: (guideYCss - offsetY) / scale,
     size: guideSizeCss / scale,
+  };
+}
+
+function computeGuideFraction(video: HTMLVideoElement, container: HTMLElement): GuideFraction {
+  const pixelBox = computeGuideBoxInVideoSpace(video, container);
+  return {
+    xFrac: pixelBox.x / video.videoWidth,
+    yFrac: pixelBox.y / video.videoHeight,
+    sizeFrac: pixelBox.size / Math.min(video.videoWidth, video.videoHeight),
   };
 }
 

@@ -5,18 +5,7 @@ import type { IdSource } from '../types/sensor';
 import type { Navigate } from './types';
 
 const OCR_TIMEOUT_MS = 25_000;
-
-const OCR_STATUS_LABELS: Record<string, string> = {
-  'loading tesseract core': 'carregando mecanismo de OCR',
-  'initializing tesseract': 'inicializando OCR',
-  'loading language traineddata': 'carregando idioma',
-  'initializing api': 'preparando OCR',
-  'recognizing text': 'lendo texto',
-};
-
-function describeOcrStatus(status: string): string {
-  return OCR_STATUS_LABELS[status] ?? status;
-}
+const IDENTIFYING_MESSAGE = 'Identificando sensor...';
 
 function withTimeout<T>(promise: Promise<T>, ms: number): Promise<T> {
   return new Promise((resolve, reject) => {
@@ -57,7 +46,7 @@ export function renderConfirmId(container: HTMLElement, navigate: Navigate): voi
 
   const badge = document.createElement('p');
   badge.className = 'badge badge-pending';
-  badge.textContent = 'Analisando etiqueta...';
+  badge.textContent = IDENTIFYING_MESSAGE;
 
   const fieldLabel = document.createElement('label');
   fieldLabel.className = 'field-label';
@@ -127,13 +116,13 @@ export function renderConfirmId(container: HTMLElement, navigate: Navigate): voi
         return;
       }
 
-      badge.textContent = 'QR não encontrado, tentando OCR (pode levar alguns segundos)...';
+      badge.textContent = IDENTIFYING_MESSAGE;
       const { ocrBlob, suggestSensorIdFromText } = await import('../services/ocr');
 
       const rawText = await withTimeout(
         ocrBlob(photo!.blob, (p) => {
           const pct = Math.round(p.progress * 100);
-          badge.textContent = `OCR: ${describeOcrStatus(p.status)} (${pct}%)`;
+          badge.textContent = `${IDENTIFYING_MESSAGE} ${pct}%`;
         }),
         OCR_TIMEOUT_MS,
       );
