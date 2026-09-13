@@ -1,6 +1,8 @@
 import { namedPhotosFromSession, oneDriveFolderName } from '../services/fileNaming';
 import { canShareFiles, downloadPhotosFallback, sharePhotos } from '../services/shareService';
 import { buildSharePointRow, copySharePointRow } from '../services/clipboardService';
+import { loadSharePointConfig } from '../services/sharePointConfig';
+import { buildSharePointFormLink } from '../services/sharePointLink';
 import { getSession, resetSession } from '../state/appState';
 import { FACES } from '../types/sensor';
 import type { Navigate } from './types';
@@ -67,11 +69,29 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
   step2.className = 'card';
   const step2Title = document.createElement('h3');
   step2Title.textContent = 'Registrar na lista do SharePoint';
-  const step2Hint = document.createElement('p');
-  step2Hint.className = 'muted';
-  step2Hint.textContent =
-    'Copie os dados abaixo, abra a lista no navegador, mude para "Editar em Grade", clique na primeira ' +
-    'célula de uma linha nova e cole.';
+
+  const sharePointConfig = loadSharePointConfig();
+  const step2Children: HTMLElement[] = [step2Title];
+
+  if (sharePointConfig) {
+    const linkHint = document.createElement('p');
+    linkHint.className = 'muted';
+    linkHint.textContent = 'Abre o formulário "Novo Item" já preenchido — confira os dados e toque em Salvar.';
+    const openFormBtn = document.createElement('a');
+    openFormBtn.className = 'btn btn-primary btn-large';
+    openFormBtn.textContent = 'Abrir formulário preenchido';
+    openFormBtn.href = buildSharePointFormLink(session, sharePointConfig);
+    openFormBtn.target = '_blank';
+    openFormBtn.rel = 'noopener noreferrer';
+    step2Children.push(linkHint, openFormBtn);
+  }
+
+  const copyDetailsSummary = document.createElement(sharePointConfig ? 'summary' : 'p');
+  copyDetailsSummary.textContent = sharePointConfig
+    ? 'Ou copiar os dados manualmente'
+    : 'Copie os dados abaixo, abra a lista no navegador, mude para "Editar em Grade", clique na primeira célula de uma linha nova e cole.';
+  copyDetailsSummary.className = sharePointConfig ? '' : 'muted';
+
   const copyBtn = document.createElement('button');
   copyBtn.className = 'btn btn-primary';
   copyBtn.type = 'button';
@@ -82,7 +102,17 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
   rowPreview.className = 'row-preview';
   rowPreview.readOnly = true;
   rowPreview.value = buildSharePointRow(session);
-  step2.append(step2Title, step2Hint, copyBtn, copyStatus, rowPreview);
+
+  if (sharePointConfig) {
+    const details = document.createElement('details');
+    details.className = 'raw-ocr-details';
+    details.append(copyDetailsSummary, copyBtn, copyStatus, rowPreview);
+    step2Children.push(details);
+  } else {
+    step2Children.push(copyDetailsSummary, copyBtn, copyStatus, rowPreview);
+  }
+
+  step2.append(...step2Children);
 
   const finalActions = document.createElement('div');
   finalActions.className = 'actions';
