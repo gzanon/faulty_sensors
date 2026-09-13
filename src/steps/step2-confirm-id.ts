@@ -135,10 +135,8 @@ export function renderConfirmId(container: HTMLElement, navigate: Navigate): voi
       input.placeholder = suggestion ? '' : 'Não foi possível sugerir um ID, digite manualmente';
       confirmBtn.disabled = input.value.trim().length === 0;
 
-      if (rawText) {
-        rawTextPre.textContent = rawText;
-        rawTextDetails.hidden = false;
-      }
+      rawTextPre.textContent = rawText || '(nenhum texto reconhecido)';
+      rawTextDetails.hidden = false;
     } catch {
       badge.textContent = 'Não foi possível identificar automaticamente. Digite o ID manualmente.';
       badge.className = 'badge badge-warning';
