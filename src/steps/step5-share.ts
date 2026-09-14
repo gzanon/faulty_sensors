@@ -1,6 +1,5 @@
 import { namedPhotosFromSession, oneDriveFolderName } from '../services/fileNaming';
 import { canShareFiles, downloadFilesFallback, downloadPhotosFallback, shareFiles, sharePhotos } from '../services/shareService';
-import { buildSharePointFieldList, buildSharePointRow, copySharePointRow } from '../services/clipboardService';
 import { buildSensorSqlInsert, sqlExportFileName } from '../services/sqlExport';
 import { getSession, resetSession } from '../state/appState';
 import { FACES } from '../types/sensor';
@@ -67,87 +66,17 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
   const sqlCard = document.createElement('div');
   sqlCard.className = 'card';
   const sqlTitle = document.createElement('h3');
-  sqlTitle.textContent = 'Compartilhar arquivo SQL (opcional)';
+  sqlTitle.textContent = 'Compartilhar arquivo SQL';
   const sqlHint = document.createElement('p');
   sqlHint.className = 'muted';
   sqlHint.textContent = 'Gera um arquivo .sql com este cadastro para enviar a uma pasta fora do celular (ex: OneDrive).';
   const sqlBtn = document.createElement('button');
-  sqlBtn.className = 'btn btn-primary';
+  sqlBtn.className = 'btn btn-primary btn-large';
   sqlBtn.type = 'button';
   sqlBtn.textContent = 'Compartilhar arquivo SQL';
   const sqlStatus = document.createElement('p');
   sqlStatus.className = 'status-text';
   sqlCard.append(sqlTitle, sqlHint, sqlBtn, sqlStatus);
-
-  const step2 = document.createElement('div');
-  step2.className = 'card';
-  const step2Title = document.createElement('h3');
-  step2Title.textContent = 'Registrar na lista do SharePoint';
-  const step2Hint = document.createElement('p');
-  step2Hint.className = 'muted';
-  step2Hint.textContent =
-    'Abra "+ Novo item" na lista, e para cada campo abaixo: toque em "Copiar", volte pro SharePoint, cole no ' +
-    'campo correspondente e volte aqui para o próximo.';
-
-  const fieldList = document.createElement('div');
-  fieldList.className = 'field-copy-list';
-
-  for (const field of buildSharePointFieldList(session)) {
-    const row = document.createElement('div');
-    row.className = 'field-copy-row';
-
-    const info = document.createElement('div');
-    info.className = 'field-copy-info';
-    const label = document.createElement('p');
-    label.className = 'field-copy-label';
-    label.textContent = field.label;
-    const value = document.createElement('p');
-    value.className = 'field-copy-value';
-    value.textContent = field.value || '(vazio)';
-    info.append(label, value);
-
-    const copyFieldBtn = document.createElement('button');
-    copyFieldBtn.className = 'btn btn-small btn-secondary';
-    copyFieldBtn.type = 'button';
-    copyFieldBtn.textContent = 'Copiar';
-    copyFieldBtn.addEventListener('click', async () => {
-      try {
-        await navigator.clipboard.writeText(field.value);
-        copyFieldBtn.textContent = 'Copiado!';
-      } catch {
-        copyFieldBtn.textContent = 'Erro';
-      }
-      setTimeout(() => {
-        copyFieldBtn.textContent = 'Copiar';
-      }, 1500);
-    });
-
-    row.append(info, copyFieldBtn);
-    fieldList.appendChild(row);
-  }
-
-  const altMethodDetails = document.createElement('details');
-  altMethodDetails.className = 'raw-ocr-details';
-  const altMethodSummary = document.createElement('summary');
-  altMethodSummary.textContent = 'Outro método: colar tudo de uma vez (funciona só em navegador de computador)';
-  const altMethodHint = document.createElement('p');
-  altMethodHint.className = 'muted';
-  altMethodHint.textContent =
-    'Copie os dados abaixo, abra a lista num computador, mude para "Editar em Grade", clique na primeira ' +
-    'célula de uma linha nova e cole.';
-  const copyBtn = document.createElement('button');
-  copyBtn.className = 'btn btn-primary';
-  copyBtn.type = 'button';
-  copyBtn.textContent = 'Copiar dados para o SharePoint';
-  const copyStatus = document.createElement('p');
-  copyStatus.className = 'status-text';
-  const rowPreview = document.createElement('textarea');
-  rowPreview.className = 'row-preview';
-  rowPreview.readOnly = true;
-  rowPreview.value = buildSharePointRow(session);
-  altMethodDetails.append(altMethodSummary, altMethodHint, copyBtn, copyStatus, rowPreview);
-
-  step2.append(step2Title, step2Hint, fieldList, altMethodDetails);
 
   const finalActions = document.createElement('div');
   finalActions.className = 'actions';
@@ -170,7 +99,7 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
   finalActions.append(homeBtn, finishBtn);
   wrapper.append(title, summary);
   if (session.withPhotos) wrapper.appendChild(step1);
-  wrapper.append(sqlCard, step2, finalActions);
+  wrapper.append(sqlCard, finalActions);
   container.appendChild(wrapper);
 
   shareBtn.addEventListener('click', async () => {
@@ -199,8 +128,11 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
 
   sqlBtn.addEventListener('click', async () => {
     sqlBtn.disabled = true;
-    const sqlBlob = new Blob([buildSensorSqlInsert(session)], { type: 'application/sql' });
-    const sqlFile = { fileName: sqlExportFileName(session), blob: sqlBlob, mimeType: 'application/sql' };
+    // Usa text/plain (não "application/sql") porque a maioria dos apps do Android
+    // (OneDrive, e-mail, etc.) só registra recebimento de tipos MIME comuns;
+    // um tipo pouco usado faz o compartilhamento falhar com "Permission denied".
+    const sqlBlob = new Blob([buildSensorSqlInsert(session)], { type: 'text/plain' });
+    const sqlFile = { fileName: sqlExportFileName(session), blob: sqlBlob, mimeType: 'text/plain' };
 
     if (!canShareFiles()) {
       sqlStatus.textContent = 'Compartilhamento direto não é suportado neste navegador. Baixando arquivo...';
@@ -221,19 +153,6 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
     } else {
       sqlStatus.textContent = `Erro ao compartilhar: ${result.message ?? 'tente novamente'}.`;
       sqlStatus.className = 'status-text status-error';
-    }
-  });
-
-  copyBtn.addEventListener('click', async () => {
-    try {
-      await copySharePointRow(session);
-      copyStatus.textContent = 'Copiado! Cole na lista do SharePoint.';
-      copyStatus.className = 'status-text status-success';
-    } catch {
-      copyStatus.textContent = 'Não foi possível copiar automaticamente. Selecione o texto abaixo e copie manualmente.';
-      copyStatus.className = 'status-text status-error';
-      rowPreview.focus();
-      rowPreview.select();
     }
   });
 }
