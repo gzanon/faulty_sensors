@@ -69,7 +69,8 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
   sqlTitle.textContent = 'Compartilhar arquivo SQL';
   const sqlHint = document.createElement('p');
   sqlHint.className = 'muted';
-  sqlHint.textContent = 'Gera um arquivo .sql com este cadastro para enviar a uma pasta fora do celular (ex: OneDrive).';
+  sqlHint.textContent =
+    'Gera um arquivo .txt com o comando SQL deste cadastro para enviar a uma pasta fora do celular (ex: OneDrive).';
   const sqlBtn = document.createElement('button');
   sqlBtn.className = 'btn btn-primary btn-large';
   sqlBtn.type = 'button';

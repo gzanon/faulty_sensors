@@ -43,9 +43,15 @@ export function buildSensorSqlInsert(session: SensorSession): string {
   return `INSERT OR REPLACE INTO ${SQL_TABLE_NAME} (${columnList})\nVALUES (${valueList});\n`;
 }
 
+/**
+ * A extensão do arquivo compartilhado é .txt (não .sql) de propósito: o
+ * compartilhamento nativo de arquivos do Chrome/Android só permite uma
+ * lista fixa de extensões consideradas seguras, e .sql fica de fora dela —
+ * o conteúdo continua sendo um comando SQL válido, só o nome do arquivo muda.
+ */
 export function sqlExportFileName(session: SensorSession): string {
   const pad = (n: number) => String(n).padStart(2, '0');
   const date = new Date(session.dataRegistro || Date.now());
   const timestamp = `${date.getFullYear()}${pad(date.getMonth() + 1)}${pad(date.getDate())}${pad(date.getHours())}${pad(date.getMinutes())}${pad(date.getSeconds())}`;
-  return `${sanitizeSensorId(session.idSensor)}_${timestamp}.sql`;
+  return `${sanitizeSensorId(session.idSensor)}_${timestamp}.txt`;
 }

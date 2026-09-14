@@ -46,7 +46,9 @@ db.exec(`
   );
 `);
 
-const sqlFiles = readdirSync(sourceDir).filter((f) => f.toLowerCase().endsWith('.sql'));
+// O app compartilha os arquivos como .txt (o compartilhamento nativo do Android
+// não permite a extensão .sql), então aceitamos as duas aqui.
+const sqlFiles = readdirSync(sourceDir).filter((f) => /\.(sql|txt)$/i.test(f));
 
 if (sqlFiles.length === 0) {
   console.log('Nenhum arquivo .sql novo encontrado em', sourceDir);
