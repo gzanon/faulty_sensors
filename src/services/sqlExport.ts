@@ -1,5 +1,5 @@
 import { FACES, type SensorSession } from '../types/sensor';
-import { oneDriveFolderName, photoFileName, sanitizeSensorId } from './fileNaming';
+import { photoFileName, sanitizeSensorId } from './fileNaming';
 
 export const SQL_TABLE_NAME = 'sensores';
 
@@ -18,13 +18,7 @@ function sqlLiteral(value: string): string {
  * registro anterior em vez de duplicar.
  */
 export function buildSensorSqlInsert(session: SensorSession): string {
-  const columns = [
-    'idSensor',
-    'dataRegistro',
-    ...FACES.map((face) => `Foto_${face}`),
-    'CaminhoPasta',
-    'Observacoes',
-  ];
+  const columns = ['idSensor', 'dataRegistro', ...FACES.map((face) => `Foto_${face}`), 'Observacoes'];
 
   const values = [
     session.idSensor,
@@ -33,7 +27,6 @@ export function buildSensorSqlInsert(session: SensorSession): string {
       const photo = session.photos[face];
       return photo ? photoFileName(session.idSensor, face, photo.capturedAt) : '';
     }),
-    oneDriveFolderName(),
     session.observacoes,
   ];
 

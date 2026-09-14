@@ -41,7 +41,6 @@ db.exec(`
     Foto_Verso TEXT,
     Foto_Esquerda TEXT,
     Foto_Base TEXT,
-    CaminhoPasta TEXT,
     Observacoes TEXT
   );
 `);
