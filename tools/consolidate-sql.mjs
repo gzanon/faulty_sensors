@@ -2,7 +2,12 @@
 // compartilhados para uma pasta local/OneDrive) em um único banco SQLite.
 //
 // Uso:
-//   node tools/consolidate-sql.mjs <pasta-com-os-.sql> [caminho-do-banco.db]
+//   node tools/consolidate-sql.mjs [pasta-com-os-.sql] [caminho-do-banco.db]
+//
+// Se a pasta não for informada na linha de comando, usa a variável de
+// ambiente FAULTY_SENSORS_SQL_FOLDER (definida uma vez no seu usuário do
+// Windows — nunca fica no código nem no repositório, já que ela costuma
+// revelar caminhos internos da empresa).
 //
 // Cada arquivo .sql processado é movido para uma subpasta "importados"
 // dentro da pasta de origem, para não ser importado de novo numa próxima
@@ -13,13 +18,16 @@ import { readdirSync, renameSync, mkdirSync, readFileSync, existsSync } from 'no
 import path from 'node:path';
 
 const [, , sourceDirArg, dbPathArg] = process.argv;
+const sourceDirFromEnv = process.env.FAULTY_SENSORS_SQL_FOLDER;
+const resolvedSourceDir = sourceDirArg ?? sourceDirFromEnv;
 
-if (!sourceDirArg) {
-  console.error('Uso: node tools/consolidate-sql.mjs <pasta-com-os-.sql> [caminho-do-banco.db]');
+if (!resolvedSourceDir) {
+  console.error('Uso: node tools/consolidate-sql.mjs [pasta-com-os-.sql] [caminho-do-banco.db]');
+  console.error('Ou defina a variável de ambiente FAULTY_SENSORS_SQL_FOLDER com o caminho da pasta.');
   process.exit(1);
 }
 
-const sourceDir = path.resolve(sourceDirArg);
+const sourceDir = path.resolve(resolvedSourceDir);
 const dbPath = path.resolve(dbPathArg ?? path.join(sourceDir, 'sensores.db'));
 const importedDir = path.join(sourceDir, 'importados');
 
