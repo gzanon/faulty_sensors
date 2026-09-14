@@ -1,6 +1,7 @@
 import { namedPhotosFromSession, oneDriveFolderName } from '../services/fileNaming';
-import { canShareFiles, downloadPhotosFallback, sharePhotos } from '../services/shareService';
+import { canShareFiles, downloadFilesFallback, downloadPhotosFallback, shareFiles, sharePhotos } from '../services/shareService';
 import { buildSharePointFieldList, buildSharePointRow, copySharePointRow } from '../services/clipboardService';
+import { buildSensorSqlInsert, sqlExportFileName } from '../services/sqlExport';
 import { getSession, resetSession } from '../state/appState';
 import { FACES } from '../types/sensor';
 import type { Navigate } from './types';
@@ -62,6 +63,21 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
   const shareStatus = document.createElement('p');
   shareStatus.className = 'status-text';
   step1.append(step1Title, step1Hint, shareBtn, shareStatus);
+
+  const sqlCard = document.createElement('div');
+  sqlCard.className = 'card';
+  const sqlTitle = document.createElement('h3');
+  sqlTitle.textContent = 'Compartilhar arquivo SQL (opcional)';
+  const sqlHint = document.createElement('p');
+  sqlHint.className = 'muted';
+  sqlHint.textContent = 'Gera um arquivo .sql com este cadastro para enviar a uma pasta fora do celular (ex: OneDrive).';
+  const sqlBtn = document.createElement('button');
+  sqlBtn.className = 'btn btn-primary';
+  sqlBtn.type = 'button';
+  sqlBtn.textContent = 'Compartilhar arquivo SQL';
+  const sqlStatus = document.createElement('p');
+  sqlStatus.className = 'status-text';
+  sqlCard.append(sqlTitle, sqlHint, sqlBtn, sqlStatus);
 
   const step2 = document.createElement('div');
   step2.className = 'card';
@@ -154,7 +170,7 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
   finalActions.append(homeBtn, finishBtn);
   wrapper.append(title, summary);
   if (session.withPhotos) wrapper.appendChild(step1);
-  wrapper.append(step2, finalActions);
+  wrapper.append(sqlCard, step2, finalActions);
   container.appendChild(wrapper);
 
   shareBtn.addEventListener('click', async () => {
@@ -178,6 +194,33 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
     } else {
       shareStatus.textContent = `Erro ao compartilhar: ${result.message ?? 'tente novamente'}.`;
       shareStatus.className = 'status-text status-error';
+    }
+  });
+
+  sqlBtn.addEventListener('click', async () => {
+    sqlBtn.disabled = true;
+    const sqlBlob = new Blob([buildSensorSqlInsert(session)], { type: 'application/sql' });
+    const sqlFile = { fileName: sqlExportFileName(session), blob: sqlBlob, mimeType: 'application/sql' };
+
+    if (!canShareFiles()) {
+      sqlStatus.textContent = 'Compartilhamento direto não é suportado neste navegador. Baixando arquivo...';
+      downloadFilesFallback([sqlFile]);
+      sqlStatus.textContent = 'Arquivo .sql baixado. Envie-o manualmente para onde quiser.';
+      sqlBtn.disabled = false;
+      return;
+    }
+
+    const result = await shareFiles([sqlFile], `SQL do sensor ${session.idSensor}`);
+    sqlBtn.disabled = false;
+    if (result.status === 'shared') {
+      sqlStatus.textContent = 'Arquivo SQL compartilhado com sucesso.';
+      sqlStatus.className = 'status-text status-success';
+    } else if (result.status === 'cancelled') {
+      sqlStatus.textContent = 'Compartilhamento cancelado. Toque no botão novamente quando quiser.';
+      sqlStatus.className = 'status-text';
+    } else {
+      sqlStatus.textContent = `Erro ao compartilhar: ${result.message ?? 'tente novamente'}.`;
+      sqlStatus.className = 'status-text status-error';
     }
   });
 
