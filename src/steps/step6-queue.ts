@@ -107,7 +107,7 @@ export async function renderQueue(container: HTMLElement, navigate: Navigate): P
   clearBtn.addEventListener('click', async () => {
     if (!window.confirm('Confirma que já enviou/salvou as fotos e o SQL? Isso apaga a fila e libera espaço no celular.')) return;
     await clearQueue();
-    await renderQueue(container, navigate);
+    navigate('intro');
   });
 
   const actions = document.createElement('div');

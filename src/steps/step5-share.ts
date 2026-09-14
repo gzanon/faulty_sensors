@@ -49,23 +49,6 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
     summary.appendChild(summaryObs);
   }
 
-  const batchCard = document.createElement('div');
-  batchCard.className = 'card';
-  const batchTitle = document.createElement('h3');
-  batchTitle.textContent = 'Catalogando vários sensores?';
-  const batchHint = document.createElement('p');
-  batchHint.className = 'muted';
-  batchHint.textContent =
-    'Guarda este cadastro (fotos incluídas) neste celular e já parte para o próximo sensor, sem compartilhar ' +
-    'agora. Depois, na fila de sensores pendentes, compartilha tudo de uma vez.';
-  const batchBtn = document.createElement('button');
-  batchBtn.className = 'btn btn-primary btn-large';
-  batchBtn.type = 'button';
-  batchBtn.textContent = 'Salvar e cadastrar outro sensor';
-  const batchStatus = document.createElement('p');
-  batchStatus.className = 'status-text';
-  batchCard.append(batchTitle, batchHint, batchBtn, batchStatus);
-
   const step1 = document.createElement('div');
   step1.className = 'card';
   const step1Title = document.createElement('h3');
@@ -111,22 +94,17 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
   finishBtn.type = 'button';
   finishBtn.textContent = 'Novo sensor';
   finishBtn.addEventListener('click', async () => {
+    finishBtn.disabled = true;
+    await addToQueue(session);
     await resetSession();
     navigate('intro');
   });
 
   finalActions.append(homeBtn, finishBtn);
-  wrapper.append(title, summary, batchCard);
+  wrapper.append(title, summary);
   if (session.withPhotos) wrapper.appendChild(step1);
   wrapper.append(sqlCard, finalActions);
   container.appendChild(wrapper);
-
-  batchBtn.addEventListener('click', async () => {
-    batchBtn.disabled = true;
-    await addToQueue(session);
-    await resetSession();
-    navigate('intro');
-  });
 
   shareBtn.addEventListener('click', async () => {
     shareBtn.disabled = true;
