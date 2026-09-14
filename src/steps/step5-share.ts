@@ -1,6 +1,7 @@
 import { namedPhotosFromSession, oneDriveFolderName } from '../services/fileNaming';
 import { canShareFiles, downloadFilesFallback, downloadPhotosFallback, shareFiles, sharePhotos } from '../services/shareService';
 import { buildSensorSqlInsert, sqlExportFileName } from '../services/sqlExport';
+import { addToQueue } from '../services/storage';
 import { getSession, resetSession } from '../state/appState';
 import { FACES } from '../types/sensor';
 import type { Navigate } from './types';
@@ -47,6 +48,23 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
     summaryObs.append(obsLabel, document.createTextNode(session.observacoes));
     summary.appendChild(summaryObs);
   }
+
+  const batchCard = document.createElement('div');
+  batchCard.className = 'card';
+  const batchTitle = document.createElement('h3');
+  batchTitle.textContent = 'Catalogando vários sensores?';
+  const batchHint = document.createElement('p');
+  batchHint.className = 'muted';
+  batchHint.textContent =
+    'Guarda este cadastro (fotos incluídas) neste celular e já parte para o próximo sensor, sem compartilhar ' +
+    'agora. Depois, na fila de sensores pendentes, compartilha tudo de uma vez.';
+  const batchBtn = document.createElement('button');
+  batchBtn.className = 'btn btn-primary btn-large';
+  batchBtn.type = 'button';
+  batchBtn.textContent = 'Salvar e cadastrar outro sensor';
+  const batchStatus = document.createElement('p');
+  batchStatus.className = 'status-text';
+  batchCard.append(batchTitle, batchHint, batchBtn, batchStatus);
 
   const step1 = document.createElement('div');
   step1.className = 'card';
@@ -98,10 +116,17 @@ export function renderShare(container: HTMLElement, navigate: Navigate): void {
   });
 
   finalActions.append(homeBtn, finishBtn);
-  wrapper.append(title, summary);
+  wrapper.append(title, summary, batchCard);
   if (session.withPhotos) wrapper.appendChild(step1);
   wrapper.append(sqlCard, finalActions);
   container.appendChild(wrapper);
+
+  batchBtn.addEventListener('click', async () => {
+    batchBtn.disabled = true;
+    await addToQueue(session);
+    await resetSession();
+    navigate('intro');
+  });
 
   shareBtn.addEventListener('click', async () => {
     shareBtn.disabled = true;

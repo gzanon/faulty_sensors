@@ -8,6 +8,7 @@ import { renderCaptureFaces } from './steps/step3-capture-faces';
 import { renderReview } from './steps/step4-review';
 import { renderNotes } from './steps/step4b-notes';
 import { renderShare } from './steps/step5-share';
+import { renderQueue } from './steps/step6-queue';
 import type { Navigate, Step } from './steps/types';
 
 const app = document.querySelector<HTMLDivElement>('#app');
@@ -17,7 +18,7 @@ const navigate: Navigate = (step: Step) => {
   app.innerHTML = '';
   switch (step) {
     case 'intro':
-      renderIntro(app, navigate);
+      void renderIntro(app, navigate);
       break;
     case 'manualId':
       renderManualId(app, navigate);
@@ -39,6 +40,9 @@ const navigate: Navigate = (step: Step) => {
       break;
     case 'share':
       renderShare(app, navigate);
+      break;
+    case 'queue':
+      void renderQueue(app, navigate);
       break;
   }
 };

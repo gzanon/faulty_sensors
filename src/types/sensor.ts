@@ -26,6 +26,13 @@ export interface SensorSession {
   withPhotos: boolean;
 }
 
+/** Um sensor já cadastrado, guardado na fila local à espera de compartilhamento em lote. */
+export interface QueuedSensor {
+  queueId: string;
+  queuedAt: string;
+  session: SensorSession;
+}
+
 export function createEmptySession(): SensorSession {
   return {
     idSensor: '',

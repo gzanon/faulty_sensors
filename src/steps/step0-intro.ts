@@ -1,11 +1,13 @@
 import { getSession, resetSession } from '../state/appState';
+import { loadQueue } from '../services/storage';
 import { FACES } from '../types/sensor';
 import type { Navigate } from './types';
 
-export function renderIntro(container: HTMLElement, navigate: Navigate): void {
+export async function renderIntro(container: HTMLElement, navigate: Navigate): Promise<void> {
   const session = getSession();
   const capturedCount = FACES.filter((f) => session.photos[f]).length;
   const hasDraft = capturedCount > 0 || session.idSensor !== '';
+  const queue = await loadQueue();
 
   const wrapper = document.createElement('div');
   wrapper.className = 'screen screen-intro';
@@ -73,6 +75,15 @@ export function renderIntro(container: HTMLElement, navigate: Navigate): void {
 
     actions.append(startWithPhotosBtn, startWithoutPhotosBtn);
     wrapper.appendChild(actions);
+  }
+
+  if (queue.length > 0) {
+    const queueBtn = document.createElement('button');
+    queueBtn.className = 'btn btn-secondary btn-large';
+    queueBtn.type = 'button';
+    queueBtn.textContent = `Fila de sensores pendentes (${queue.length})`;
+    queueBtn.addEventListener('click', () => navigate('queue'));
+    wrapper.appendChild(queueBtn);
   }
 
   container.appendChild(wrapper);
