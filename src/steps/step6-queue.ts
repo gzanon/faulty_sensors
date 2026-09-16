@@ -5,6 +5,17 @@ import { clearQueue, loadQueue, removeFromQueue } from '../services/storage';
 import type { NamedPhoto } from '../types/sensor';
 import type { Navigate } from './types';
 
+// O Chrome/Android recusa compartilhar arquivos demais numa única chamada
+// (acima de ~10 já costuma falhar com "Permission denied"), então dividimos
+// as fotos em lotes menores, cada um com seu próprio botão de compartilhar.
+const PHOTO_BATCH_SIZE = 6;
+
+function chunk<T>(items: T[], size: number): T[][] {
+  const chunks: T[][] = [];
+  for (let i = 0; i < items.length; i += size) chunks.push(items.slice(i, i + size));
+  return chunks;
+}
+
 function batchSqlFileName(): string {
   const now = new Date();
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -74,14 +85,63 @@ export async function renderQueue(container: HTMLElement, navigate: Navigate): P
   photosCard.className = 'card';
   const photosTitle = document.createElement('h3');
   photosTitle.textContent = 'Enviar fotos de todos ao OneDrive';
-  const photosBtn = document.createElement('button');
-  photosBtn.className = 'btn btn-primary btn-large';
-  photosBtn.type = 'button';
-  const totalPhotos = queue.reduce((n, q) => n + Object.keys(q.session.photos).length, 0);
-  photosBtn.textContent = `Compartilhar ${totalPhotos} fotos`;
-  const photosStatus = document.createElement('p');
-  photosStatus.className = 'status-text';
-  photosCard.append(photosTitle, photosBtn, photosStatus);
+
+  const allPhotos: NamedPhoto[] = queue.flatMap((q) => namedPhotosFromSession(q.session));
+  const photoBatches = chunk(allPhotos, PHOTO_BATCH_SIZE);
+
+  if (photoBatches.length > 1) {
+    const photosHint = document.createElement('p');
+    photosHint.className = 'muted';
+    photosHint.textContent = `Dividido em ${photoBatches.length} lotes de até ${PHOTO_BATCH_SIZE} fotos (o Android recusa muitos arquivos de uma vez só). Toque em cada botão.`;
+    photosCard.appendChild(photosHint);
+  }
+
+  photosCard.appendChild(photosTitle);
+
+  photoBatches.forEach((batch, index) => {
+    const batchRow = document.createElement('div');
+    batchRow.className = 'field-copy-row';
+
+    const batchBtn = document.createElement('button');
+    batchBtn.className = 'btn btn-primary';
+    batchBtn.type = 'button';
+    batchBtn.textContent =
+      photoBatches.length > 1 ? `Lote ${index + 1}/${photoBatches.length} (${batch.length} fotos)` : `Compartilhar ${batch.length} fotos`;
+
+    const batchStatus = document.createElement('p');
+    batchStatus.className = 'status-text';
+
+    batchBtn.addEventListener('click', async () => {
+      batchBtn.disabled = true;
+
+      if (!canShareFiles()) {
+        batchStatus.textContent = 'Compartilhamento direto não é suportado neste navegador. Baixando fotos...';
+        downloadPhotosFallback(batch);
+        batchStatus.textContent = 'Fotos baixadas. Envie-as manualmente pelo app do OneDrive.';
+        batchBtn.disabled = false;
+        return;
+      }
+
+      const result = await shareFiles(
+        batch.map((p) => ({ fileName: p.fileName, blob: p.blob, mimeType: 'image/jpeg' })),
+        `Fotos dos sensores (lote ${index + 1})`,
+      );
+      batchBtn.disabled = false;
+      if (result.status === 'shared') {
+        batchStatus.textContent = 'Compartilhado com sucesso.';
+        batchStatus.className = 'status-text status-success';
+      } else if (result.status === 'cancelled') {
+        batchStatus.textContent = 'Cancelado. Toque novamente quando quiser.';
+        batchStatus.className = 'status-text';
+      } else {
+        batchStatus.textContent = `Erro: ${result.message ?? 'tente novamente'}.`;
+        batchStatus.className = 'status-text status-error';
+      }
+    });
+
+    batchRow.append(batchBtn, batchStatus);
+    photosCard.appendChild(batchRow);
+  });
 
   const sqlCard = document.createElement('div');
   sqlCard.className = 'card';
@@ -116,35 +176,6 @@ export async function renderQueue(container: HTMLElement, navigate: Navigate): P
 
   wrapper.append(list, photosCard, sqlCard, clearStatus, actions);
   container.appendChild(wrapper);
-
-  photosBtn.addEventListener('click', async () => {
-    photosBtn.disabled = true;
-    const allPhotos: NamedPhoto[] = queue.flatMap((q) => namedPhotosFromSession(q.session));
-
-    if (!canShareFiles()) {
-      photosStatus.textContent = 'Compartilhamento direto não é suportado neste navegador. Baixando fotos...';
-      downloadPhotosFallback(allPhotos);
-      photosStatus.textContent = 'Fotos baixadas. Envie-as manualmente pelo app do OneDrive.';
-      photosBtn.disabled = false;
-      return;
-    }
-
-    const result = await shareFiles(
-      allPhotos.map((p) => ({ fileName: p.fileName, blob: p.blob, mimeType: 'image/jpeg' })),
-      `Fotos de ${queue.length} sensores`,
-    );
-    photosBtn.disabled = false;
-    if (result.status === 'shared') {
-      photosStatus.textContent = 'Fotos compartilhadas com sucesso.';
-      photosStatus.className = 'status-text status-success';
-    } else if (result.status === 'cancelled') {
-      photosStatus.textContent = 'Compartilhamento cancelado. Toque no botão novamente quando quiser.';
-      photosStatus.className = 'status-text';
-    } else {
-      photosStatus.textContent = `Erro ao compartilhar: ${result.message ?? 'tente novamente'}. Se a lista for muito grande, tente remover alguns sensores da fila e compartilhar em levas menores.`;
-      photosStatus.className = 'status-text status-error';
-    }
-  });
 
   sqlBtn.addEventListener('click', async () => {
     sqlBtn.disabled = true;
